@@ -36,21 +36,35 @@ def count_clicks(token, link_key):
         'https://api.vk.ru/method/utils.getLinkStats', data=parameters, timeout=20)
     response.raise_for_status()
     response_data = response.json()
-    clicks_data = ''
-    if 'response' in response_data and 'stats' in response_data['response']:
-        clicks_data = f'Количество переходов по ссылке: {
-            response_data['response']['stats'][0]['views']}'
-    if 'response' in response_data and not 'stats' in response_data['response']:
-        clicks_data = 'Нет доступа к статистике'
-    elif 'error' in response_data:
-        raise Exception(f'Ошибка API {response_data['error']['error_code']}')
+    clicks_data = 'неизвестно'
+    if response_data['response']['stats']:
+        clicks_data = response_data['response']['stats'][0]['views']
     return clicks_data
 
 
-def is_short_or_long(url):
-    shortened_url_netlocs = ['vk.cc']
+def is_shorten_link(token, url):
     parsed_url = urlparse(url)
-    return parsed_url.netloc in shortened_url_netlocs
+    if not parsed_url.scheme:
+        url = f'http://{url}'
+        parsed_url = urlparse(url)
+    parameters = {
+        'url': url,
+        'access_token': token,
+        'v': '5.199',
+    }
+    response = requests.post(
+        'https://api.vk.ru/method/utils.checkLink', data=parameters, timeout=20)
+    response.raise_for_status()
+    response_data = response.json()
+    if 'error' in response_data:
+        raise Exception(f'Ошибка API {response_data['error']['error_code']}')
+    shortened_url_netlocs = ['vk.cc']
+    parsed_url_netloc = parsed_url.netloc
+    parsed_url_path = parsed_url.path[1:]
+    is_short = parsed_url_netloc in shortened_url_netlocs
+    if is_short and not parsed_url_path:
+        raise Exception('Неверный формат ссылки')
+    return is_short
 
 
 def main():
@@ -58,13 +72,14 @@ def main():
     vk_service_token = os.environ['VK_SERVICE_TOKEN']
     url = input('Введите ссылку: ')
     try:
-        if not is_short_or_long(url):
+        if not is_shorten_link(vk_service_token, url):
             short_link = shorten_link(vk_service_token, url)
             link_key = urlparse(short_link).path[1:]
             print(short_link)
+            print(f'Количество переходов по ссылке: {count_clicks(vk_service_token, link_key)}')
         else:
             link_key = urlparse(url).path[1:]
-        print(count_clicks(vk_service_token, link_key))
+            print(f'Количество переходов по ссылке: {count_clicks(vk_service_token, link_key)}')
     except requests.exceptions.HTTPError as error:
         print(f'Ошибка HTTP {error.response.status_code}')
 
