@@ -74,10 +74,7 @@ def main():
     try:
         if not is_shorten_link(vk_service_token, url):
             short_link = shorten_link(vk_service_token, url)
-            link_key = urlparse(short_link).path[1:]
             print(short_link)
-            print(f'Количество переходов по ссылке:{
-                  count_clicks(vk_service_token, link_key)}')
         else:
             link_key = urlparse(url).path[1:]
             print(f'Количество переходов по ссылке: {
